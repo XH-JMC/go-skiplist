@@ -1,8 +1,14 @@
 package skiplist
 
-import "math/rand"
+import (
+	"math"
+	"math/rand"
+)
 
-const MaxLevel = 63 // level: [0, MaxLevel]
+const (
+	SKIPLIST_MAXLEVEL = 31 // level: [0, MaxLevel]
+	SKIPLIST_P        = 4  // 概率: 1/4
+)
 
 type SkipList struct {
 	head  *SkipListNode
@@ -20,7 +26,7 @@ type SkipListNode struct {
 
 type SkipListLevel struct {
 	forward *SkipListNode
-	//span    uint
+	span    uint
 }
 
 func NewSkipList() *SkipList {
@@ -40,48 +46,21 @@ func (s *SkipList) Size() uint {
 	return s.size
 }
 
-func (s *SkipList) Add(val int, obj interface{}) {
-	level := s.randLevel()
-	if s.level < level {
-		s.head.level = append(s.head.level, make([]SkipListLevel, level-s.level)...)
-		s.level = level
+func (s *SkipList) Insert(val int, obj interface{}) {
+	newLevel := s.randLevel()
+	if s.level < newLevel {
+		s.head.level = append(s.head.level, make([]SkipListLevel, newLevel-s.level)...)
+		s.level = newLevel
 	}
 	s.size++
 
 	node := &SkipListNode{
-		level:    make([]SkipListLevel, level+1),
+		level:    make([]SkipListLevel, newLevel+1),
 		backward: nil,
 		val:      val,
 		obj:      obj,
 	}
 
-	p := s.head
-	for level >= 0 {
-		forward := p.level[level].forward
-		for forward != nil && forward.val < val {
-			p = forward
-			forward = p.level[level].forward
-		}
-		p.level[level].forward = node
-		node.level[level].forward = forward
-		if forward != nil {
-			forward.backward = node
-		}
-		level--
-	}
-	node.backward = p
-}
-
-func (s *SkipList) randLevel() int {
-	for i := 0; i < MaxLevel; i++ {
-		if (rand.Int() & 1) == 0 {
-			return i
-		}
-	}
-	return MaxLevel
-}
-
-func (s *SkipList) LowerBound(val int) *SkiplistIterator {
 	level := s.level // 当前遍历的层级
 	p := s.head      // 当前遍历的节点
 	for level >= 0 {
@@ -90,8 +69,42 @@ func (s *SkipList) LowerBound(val int) *SkiplistIterator {
 			p = forward
 			forward = p.level[level].forward
 		}
+		if level <= newLevel {
+			p.level[level].forward = node
+			node.level[level].forward = forward
+			if forward != nil {
+				forward.backward = node
+			}
+		}
+		level--
+	}
+	node.backward = p
+}
+
+func (s *SkipList) randLevel() int {
+	level := 0
+	for (rand.Int()&math.MaxInt32) < (math.MaxInt32/SKIPLIST_P) {
+		level++
+	}
+	if level < SKIPLIST_MAXLEVEL {
+		return level
+	}
+	return SKIPLIST_MAXLEVEL
+}
+
+func (s *SkipList) LowerBound(val int) *SkiplistIterator {
+	var rank uint
+	level := s.level // 当前遍历的层级
+	p := s.head      // 当前遍历的节点
+	for level >= 0 {
+		forward := p.level[level].forward
+		for forward != nil && forward.val < val {
+			rank += p.level[level].span
+			p = forward
+			forward = p.level[level].forward
+		}
 		level--
 	}
 
-	return newIterator(p)
+	return newIterator(p, rank)
 }

@@ -2,45 +2,70 @@ package skiplist
 
 import (
 	"fmt"
-	"math/rand"
 	"testing"
 )
 
 func Test(t *testing.T) {
-	rand.Seed(0)
-
 	s := NewSkipList()
-	n := 100000
+	n := 1000000
 	for i := 0; i < n; i++ {
-		s.Add(i, nil)
+		s.Insert(i, nil)
 	}
 
-	m := make([]int, MaxLevel+1)
+	list := make([]int, SKIPLIST_MAXLEVEL+1)
 	p := s.head.level[0].forward
 	for p != nil {
-		m[len(p.level)-1]++
+		list[len(p.level)-1]++
 		p = p.level[0].forward
 	}
-	for i, v := range m {
-		fmt.Println(i, v)
+	for i := SKIPLIST_MAXLEVEL; i > 0; i-- {
+		list[i-1] += list[i]
+	}
+	for i, num := range list {
+		fmt.Println(i, num)
 	}
 
-	//f := func(val int) {
-	//	cnt := 0
-	//
-	//	iter := s.LowerBound(val)
-	//	_ = iter
-	//	for iter.Next() {
-	//		_, _ = iter.Value(), iter.Object()
-	//		cnt++
-	//	}
-	//
-	//	if n != val+cnt {
-	//		fmt.Println(val, cnt)
-	//	}
-	//}
-	//
-	//for i := 0; i < n; i++ {
-	//	f(rand.Intn(n + 1))
-	//}
+	f := func(val int) {
+		iter := s.LowerBound(val)
+		_ = iter
+
+		cnt := 0
+		if iter.Next() {
+			fmt.Println(val, iter.Rank(), iter.Value(), iter.Object())
+			cnt++
+		} else {
+			fmt.Println(val, nil)
+		}
+
+		for iter.Next() {
+			cnt++
+		}
+
+		if n != val+cnt {
+			fmt.Println(val, cnt)
+		}
+	}
+
+	f(0)
+	f(1)
+	f(2)
+	f(n - 2)
+	f(n - 1)
+	f(n)
+}
+
+func TestRandLevel(t *testing.T) {
+	s := NewSkipList()
+	n := 1000000
+	list := make([]int, SKIPLIST_MAXLEVEL+1)
+	for i := 0; i < n; i++ {
+		level := s.randLevel()
+		list[level]++
+	}
+	for i := SKIPLIST_MAXLEVEL; i > 0; i-- {
+		list[i-1] += list[i]
+	}
+	for i, num := range list {
+		fmt.Println(i, num)
+	}
 }

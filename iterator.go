@@ -2,10 +2,11 @@ package skiplist
 
 type SkiplistIterator struct {
 	node *SkipListNode
+	rank uint
 }
 
-func newIterator(node *SkipListNode) *SkiplistIterator {
-	return &SkiplistIterator{node: node}
+func newIterator(node *SkipListNode, rank uint) *SkiplistIterator {
+	return &SkiplistIterator{node: node, rank: rank}
 }
 
 func (iter *SkiplistIterator) Next() bool {
@@ -13,8 +14,13 @@ func (iter *SkiplistIterator) Next() bool {
 		return false
 	}
 
+	iter.rank += iter.node.level[0].span
 	iter.node = iter.node.level[0].forward
 	return iter.node != nil
+}
+
+func (iter *SkiplistIterator) Rank() uint {
+	return iter.rank
 }
 
 func (iter *SkiplistIterator) Value() int {
