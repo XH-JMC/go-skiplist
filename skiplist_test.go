@@ -6,10 +6,12 @@ import (
 )
 
 func Test(t *testing.T) {
-	s := NewSkipList()
+	s := NewSkipList().WithObjectCompareFunc(func(a, b SkipListElem) int {
+		return a.(int) - b.(int)
+	})
 	n := 1000000
 	for i := 0; i < n; i++ {
-		s.Insert(i, nil)
+		s.Insert(i)
 	}
 
 	list := make([]int, SKIPLIST_MAXLEVEL+1)
@@ -25,24 +27,24 @@ func Test(t *testing.T) {
 		fmt.Println(i, num)
 	}
 
-	f := func(val int) {
-		iter := s.LowerBound(val)
+	f := func(elem int) {
+		iter := s.LowerBound(elem)
 		_ = iter
 
 		cnt := 0
 		if iter.Next() {
-			fmt.Println(val, iter.Rank(), iter.Value(), iter.Object())
+			fmt.Println(elem, iter.Rank(), iter.Elem())
 			cnt++
 		} else {
-			fmt.Println(val, nil)
+			fmt.Println(elem, nil)
 		}
 
 		for iter.Next() {
 			cnt++
 		}
 
-		if n != val+cnt {
-			fmt.Println(val, cnt)
+		if n != elem+cnt {
+			fmt.Println(elem, cnt)
 		}
 	}
 
@@ -52,6 +54,9 @@ func Test(t *testing.T) {
 	f(n - 2)
 	f(n - 1)
 	f(n)
+
+	// todo test delete
+	// s.Delete()
 }
 
 func TestRandLevel(t *testing.T) {

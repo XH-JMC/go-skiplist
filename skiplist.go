@@ -1,8 +1,10 @@
 package skiplist
 
 import (
+	"fmt"
 	"math"
 	"math/rand"
+	"strings"
 )
 
 const (
@@ -10,18 +12,21 @@ const (
 	SKIPLIST_P        = 4  // 概率: 1/4
 )
 
+type ElemCompareFunc func(a, b SkipListElem) int // 比较函数: a<b返回负数，a>b返回正数，a==b返回0
+
 type SkipList struct {
-	head  *SkipListNode
-	size  uint
-	level int
+	head    *SkipListNode
+	tail    *SkipListNode
+	size    uint
+	level   int
+	elemCmp ElemCompareFunc
 }
 
 type SkipListNode struct {
 	level    []SkipListLevel
 	backward *SkipListNode
 
-	val int
-	obj interface{}
+	elem SkipListElem
 }
 
 type SkipListLevel struct {
@@ -29,27 +34,47 @@ type SkipListLevel struct {
 	span    uint
 }
 
+type SkipListElem interface{}
+
 func NewSkipList() *SkipList {
-	return &SkipList{
-		head: &SkipListNode{
-			level:    make([]SkipListLevel, 1),
-			backward: nil,
-			val:      0,
-			obj:      nil,
-		},
-		size:  0,
-		level: 0,
+	node := &SkipListNode{
+		level:    make([]SkipListLevel, SKIPLIST_MAXLEVEL+1),
+		backward: nil,
 	}
+
+	return &SkipList{
+		head:  node,
+		tail:  node,
+		size:  0,
+		level: -1,
+	}
+}
+
+func DefaultObjectCompare(a, b SkipListElem) int {
+	if a == nil && b == nil {
+		return 0
+	}
+	if a == nil {
+		return -1
+	}
+	if b == nil {
+		return +1
+	}
+	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
+}
+
+func (s *SkipList) WithObjectCompareFunc(objCmp ElemCompareFunc) *SkipList {
+	s.elemCmp = objCmp
+	return s
 }
 
 func (s *SkipList) Size() uint {
 	return s.size
 }
 
-func (s *SkipList) Insert(val int, obj interface{}) {
+func (s *SkipList) Insert(elem SkipListElem) {
 	newLevel := s.randLevel()
 	if s.level < newLevel {
-		s.head.level = append(s.head.level, make([]SkipListLevel, newLevel-s.level)...)
 		s.level = newLevel
 	}
 	s.size++
@@ -57,19 +82,32 @@ func (s *SkipList) Insert(val int, obj interface{}) {
 	node := &SkipListNode{
 		level:    make([]SkipListLevel, newLevel+1),
 		backward: nil,
-		val:      val,
-		obj:      obj,
+		elem:     elem,
 	}
 
-	level := s.level // 当前遍历的层级
-	p := s.head      // 当前遍历的节点
+	type NodeRank struct {
+		node *SkipListNode
+		rank uint
+	}
+
+	preNodeRanks := make([]NodeRank, newLevel+1) // 记录新节点每层的前置节点及排名
+	rank := uint(0)                              // 记录当前遍历的节点的排名
+	level := s.level                             // 当前遍历的层级
+	p := s.head                                  // 当前遍历的节点
+	// 在每一层插入新节点，同时维护新节点每层的前置节点及排名
 	for level >= 0 {
 		forward := p.level[level].forward
-		for forward != nil && forward.val < val {
+		for forward != nil && s.cmpElem(forward.elem, elem) <= 0 {
+			rank += p.level[level].span
 			p = forward
 			forward = p.level[level].forward
 		}
+
 		if level <= newLevel {
+			preNodeRanks[level] = NodeRank{
+				node: p,
+				rank: rank,
+			}
 			p.level[level].forward = node
 			node.level[level].forward = forward
 			if forward != nil {
@@ -78,12 +116,32 @@ func (s *SkipList) Insert(val int, obj interface{}) {
 		}
 		level--
 	}
-	node.backward = p
+
+	if p != s.head {
+		node.backward = p
+	}
+	if node.level[0].forward == nil {
+		s.tail = node
+	}
+
+	// 根据新节点每层的前置节点及排名和旧span，求新节点与每一层的前后节点的新span
+	newNodeRank := preNodeRanks[0].rank + 1
+	for i := 0; i <= newLevel; i++ {
+		if preNodeRanks[i].node.level[i].forward == nil {
+			node.level[i].span = 0
+			preNodeRanks[i].node.level[i].span = newNodeRank - preNodeRanks[i].rank
+		} else {
+			preNodeSpan := newNodeRank - preNodeRanks[i].rank
+			node.level[i].span = preNodeRanks[i].node.level[i].span + 1 - preNodeSpan
+			preNodeRanks[i].node.level[i].span = preNodeSpan
+		}
+	}
 }
 
+// 返回[0, SKIPLIST_MAXLEVEL]的随机数
 func (s *SkipList) randLevel() int {
 	level := 0
-	for (rand.Int()&math.MaxInt32) < (math.MaxInt32/SKIPLIST_P) {
+	for (rand.Int() & math.MaxInt32) < (math.MaxInt32 / SKIPLIST_P) {
 		level++
 	}
 	if level < SKIPLIST_MAXLEVEL {
@@ -92,13 +150,58 @@ func (s *SkipList) randLevel() int {
 	return SKIPLIST_MAXLEVEL
 }
 
-func (s *SkipList) LowerBound(val int) *SkiplistIterator {
+// 删除特定元素，返回原表中是否存在该元素
+func (s *SkipList) Delete(elem SkipListElem) bool {
+	preNodes := make([]*SkipListNode, s.level+1) // 记录新节点每层的前置节点
+	level := s.level                             // 当前遍历的层级
+	p := s.head                                  // 当前遍历的节点
+	for level >= 0 {
+		forward := p.level[level].forward
+		for forward != nil && s.cmpElem(forward.elem, elem) < 0 {
+			p = forward
+			forward = p.level[level].forward
+		}
+		preNodes[level] = p
+		level--
+	}
+
+	p = p.level[0].forward
+	if p != nil && s.cmpElem(p.elem, elem) == 0 {
+		s.deleteNode(p, preNodes)
+	}
+	return false
+}
+
+func (s *SkipList) deleteNode(p *SkipListNode, preNodes []*SkipListNode) {
+	for i, preNode := range preNodes {
+		if preNode.level[i].forward == p {
+			preNode.level[i].span += p.level[i].span - 1
+			preNode.level[i].forward = p.level[i].forward
+		} else {
+			preNode.level[i].span--
+		}
+	}
+
+	if p.level[0].forward != nil {
+		p.level[0].forward.backward = p.backward
+	} else {
+		s.tail = p.backward
+	}
+
+	for s.level >= 0 && s.head.level[s.level].forward == nil {
+		s.level--
+	}
+	s.size--
+}
+
+func (s *SkipList) LowerBound(elem SkipListElem) *SkiplistIterator {
+
 	var rank uint
 	level := s.level // 当前遍历的层级
 	p := s.head      // 当前遍历的节点
 	for level >= 0 {
 		forward := p.level[level].forward
-		for forward != nil && forward.val < val {
+		for forward != nil && s.cmpElem(forward.elem, elem) < 0 {
 			rank += p.level[level].span
 			p = forward
 			forward = p.level[level].forward
@@ -107,4 +210,29 @@ func (s *SkipList) LowerBound(val int) *SkiplistIterator {
 	}
 
 	return newIterator(p, rank)
+}
+
+func (s *SkipList) UpperBound(elem SkipListElem) *SkiplistIterator {
+	var rank uint
+	level := s.level // 当前遍历的层级
+	p := s.head      // 当前遍历的节点
+	for level >= 0 {
+		forward := p.level[level].forward
+		for forward != nil && s.cmpElem(forward.elem, elem) <= 0 {
+			rank += p.level[level].span
+			p = forward
+			forward = p.level[level].forward
+		}
+		level--
+	}
+
+	return newIterator(p, rank)
+}
+
+func (s *SkipList) cmpElem(a, b SkipListElem) int {
+	if s.elemCmp == nil {
+		return DefaultObjectCompare(a, b)
+	}
+
+	return s.elemCmp(a, b)
 }

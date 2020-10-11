@@ -2,7 +2,7 @@ package skiplist
 
 type SkiplistIterator struct {
 	node *SkipListNode
-	rank uint
+	rank uint // 从1开始
 }
 
 func newIterator(node *SkipListNode, rank uint) *SkiplistIterator {
@@ -23,10 +23,6 @@ func (iter *SkiplistIterator) Rank() uint {
 	return iter.rank
 }
 
-func (iter *SkiplistIterator) Value() int {
-	return iter.node.val
-}
-
-func (iter *SkiplistIterator) Object() interface{} {
-	return iter.node.obj
+func (iter *SkiplistIterator) Elem() SkipListElem {
+	return iter.node.elem
 }
