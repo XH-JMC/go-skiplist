@@ -27,6 +27,7 @@ func Test(t *testing.T) {
 		fmt.Println(i, num)
 	}
 
+	fmt.Println()
 	f := func(elem int) {
 		iter := s.LowerBound(elem)
 		_ = iter
@@ -43,9 +44,7 @@ func Test(t *testing.T) {
 			cnt++
 		}
 
-		if n != elem+cnt {
-			fmt.Println(elem, cnt)
-		}
+		fmt.Println(elem, cnt)
 	}
 
 	f(0)
@@ -55,8 +54,19 @@ func Test(t *testing.T) {
 	f(n - 1)
 	f(n)
 
-	// todo test delete
-	// s.Delete()
+	fmt.Println()
+
+	s.Delete(0)
+	s.Delete(1)
+	s.Delete(n - 1)
+	s.Delete(n)
+
+	f(0)
+	f(1)
+	f(2)
+	f(n - 2)
+	f(n - 1)
+	f(n)
 }
 
 func TestRandLevel(t *testing.T) {
