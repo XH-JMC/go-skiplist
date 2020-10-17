@@ -14,7 +14,7 @@ func (iter *SkiplistIterator) Next() bool {
 		return false
 	}
 
-	iter.rank += iter.node.level[0].span
+	iter.rank++ // 等价于 iter.rank += iter.node.level[0].span
 	iter.node = iter.node.level[0].forward
 	return iter.node != nil
 }

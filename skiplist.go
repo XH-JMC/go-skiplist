@@ -178,6 +178,7 @@ func (sl *SkipList) Delete(elem SkipListElem) bool {
 	p = p.level[0].forward
 	if p != nil && sl.cmpElem(p.elem, elem) == 0 {
 		sl.deleteNode(p, preNodes)
+		return true
 	}
 	return false
 }
@@ -202,6 +203,14 @@ func (sl *SkipList) deleteNode(p *SkipListNode, preNodes []*SkipListNode) {
 		sl.level--
 	}
 	sl.size--
+}
+
+func (sl *SkipList) Find(elem SkipListElem) (SkipListElem, bool) {
+	iter := sl.LowerBound(elem)
+	if iter.Next() && sl.cmpElem(iter.Elem(), elem) == 0 {
+		return iter.Elem(), true
+	}
+	return nil, false
 }
 
 func (sl *SkipList) LowerBound(elem SkipListElem) *SkiplistIterator {
@@ -238,4 +247,15 @@ func (sl *SkipList) findWithLessFunc(less func(p, forward *SkipListNode, level i
 	}
 
 	return newIterator(p, rank)
+}
+
+func (sl *SkipList) Begin() *SkiplistIterator {
+	return newIterator(sl.head, 0)
+}
+
+func (sl *SkipList) End() *SkiplistIterator {
+	if sl.size < 1 {
+		return newIterator(sl.head, 0)
+	}
+	return newIterator(sl.tail.backward, sl.size-1)
 }
