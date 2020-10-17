@@ -1,33 +1,33 @@
 package skiplist_test
 
 import (
-	skiplist "go-skiplist"
+	"XH-JMC/go-skiplist"
 	"testing"
 )
 
 var (
-	s *skiplist.SkipList
-	n int
+	sl *skiplist.SkipList
+	n  int
 )
 
 func init() {
-	s = skiplist.NewSkipList().WithObjectCompareFunc(func(a, b skiplist.SkipListElem) int {
+	sl = skiplist.NewSkipList().WithObjectCompareFunc(func(a, b skiplist.SkipListElem) int {
 		return a.(int) - b.(int)
 	})
 
 	n = 100
 	step := 4
 	for i := 1; i <= n; i += step {
-		s.Insert(i)
+		sl.Insert(i)
 	}
 	for i := 2; i <= n; i += step {
-		s.Insert(i)
+		sl.Insert(i)
 	}
 	for i := n - n%step; i > 0; i -= step {
-		s.Insert(i)
+		sl.Insert(i)
 	}
 	for i := n - n%step - 1; i > 0; i -= step {
-		s.Insert(i)
+		sl.Insert(i)
 	}
 }
 
@@ -40,7 +40,7 @@ func assert(t *testing.T, condition bool, fatalArgs ...interface{}) {
 
 func TestSkipList_LowerBound(t *testing.T) {
 	check := func(queryElem int, elem int, rank uint, exist bool) {
-		iter := s.LowerBound(queryElem)
+		iter := sl.LowerBound(queryElem)
 		queryExist := false
 		for iter.Next() {
 			queryExist = true

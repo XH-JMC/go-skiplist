@@ -50,9 +50,9 @@ func NewSkipList() *SkipList {
 	}
 }
 
-func (s *SkipList) WithObjectCompareFunc(objCmp ElemCompareFunc) *SkipList {
-	s.elemCmp = objCmp
-	return s
+func (sl *SkipList) WithObjectCompareFunc(objCmp ElemCompareFunc) *SkipList {
+	sl.elemCmp = objCmp
+	return sl
 }
 
 func DefaultObjectCompare(a, b SkipListElem) int {
@@ -68,24 +68,24 @@ func DefaultObjectCompare(a, b SkipListElem) int {
 	return strings.Compare(fmt.Sprint(a), fmt.Sprint(b))
 }
 
-func (s *SkipList) Size() uint {
-	return s.size
+func (sl *SkipList) Size() uint {
+	return sl.size
 }
 
-func (s *SkipList) cmpElem(a, b SkipListElem) int {
-	if s.elemCmp == nil {
+func (sl *SkipList) cmpElem(a, b SkipListElem) int {
+	if sl.elemCmp == nil {
 		return DefaultObjectCompare(a, b)
 	}
 
-	return s.elemCmp(a, b)
+	return sl.elemCmp(a, b)
 }
 
-func (s *SkipList) Insert(elem SkipListElem) {
-	newLevel := s.randLevel()
-	if s.level < newLevel {
-		s.level = newLevel
+func (sl *SkipList) Insert(elem SkipListElem) {
+	newLevel := sl.randLevel()
+	if sl.level < newLevel {
+		sl.level = newLevel
 	}
-	s.size++
+	sl.size++
 
 	node := &SkipListNode{
 		level:    make([]SkipListLevel, newLevel+1),
@@ -98,14 +98,14 @@ func (s *SkipList) Insert(elem SkipListElem) {
 		rank uint
 	}
 
-	preNodeRanks := make([]NodeRank, s.level+1) // 新节点每层的前置节点及排名
-	rank := uint(0)                             // 当前遍历的节点的排名
-	level := s.level                            // 当前遍历的层级
-	p := s.head                                 // 当前遍历的节点
+	preNodeRanks := make([]NodeRank, sl.level+1) // 新节点每层的前置节点及排名
+	rank := uint(0)                              // 当前遍历的节点的排名
+	level := sl.level                            // 当前遍历的层级
+	p := sl.head                                 // 当前遍历的节点
 	// 在每一层插入新节点，同时维护新节点每层的前置节点及排名
 	for level >= 0 {
 		forward := p.level[level].forward
-		for forward != nil && s.cmpElem(forward.elem, elem) <= 0 {
+		for forward != nil && sl.cmpElem(forward.elem, elem) <= 0 {
 			rank += p.level[level].span
 			p = forward
 			forward = p.level[level].forward
@@ -126,16 +126,16 @@ func (s *SkipList) Insert(elem SkipListElem) {
 		level--
 	}
 
-	if p != s.head {
+	if p != sl.head {
 		node.backward = p
 	}
 	if node.level[0].forward == nil {
-		s.tail = node
+		sl.tail = node
 	}
 
 	// 根据新节点每层的前置节点及排名和旧span，求新节点与每一层的前后节点的新span
 	newNodeRank := preNodeRanks[0].rank + 1
-	for i := 0; i <= s.level; i++ {
+	for i := 0; i <= sl.level; i++ {
 		if i <= newLevel {
 			preNodeSpan := newNodeRank - preNodeRanks[i].rank
 			if node.level[i].forward != nil {
@@ -149,7 +149,7 @@ func (s *SkipList) Insert(elem SkipListElem) {
 }
 
 // 返回[0, SKIPLIST_MAXLEVEL]的随机数
-func (s *SkipList) randLevel() int {
+func (sl *SkipList) randLevel() int {
 	level := 0
 	for (rand.Int() & math.MaxInt32) < (math.MaxInt32 / SKIPLIST_P) {
 		level++
@@ -161,13 +161,13 @@ func (s *SkipList) randLevel() int {
 }
 
 // 删除特定元素，返回原表中是否存在该元素
-func (s *SkipList) Delete(elem SkipListElem) bool {
-	preNodes := make([]*SkipListNode, s.level+1) // 记录新节点每层的前置节点
-	level := s.level                             // 当前遍历的层级
-	p := s.head                                  // 当前遍历的节点
+func (sl *SkipList) Delete(elem SkipListElem) bool {
+	preNodes := make([]*SkipListNode, sl.level+1) // 记录新节点每层的前置节点
+	level := sl.level                             // 当前遍历的层级
+	p := sl.head                                  // 当前遍历的节点
 	for level >= 0 {
 		forward := p.level[level].forward
-		for forward != nil && s.cmpElem(forward.elem, elem) < 0 {
+		for forward != nil && sl.cmpElem(forward.elem, elem) < 0 {
 			p = forward
 			forward = p.level[level].forward
 		}
@@ -176,13 +176,13 @@ func (s *SkipList) Delete(elem SkipListElem) bool {
 	}
 
 	p = p.level[0].forward
-	if p != nil && s.cmpElem(p.elem, elem) == 0 {
-		s.deleteNode(p, preNodes)
+	if p != nil && sl.cmpElem(p.elem, elem) == 0 {
+		sl.deleteNode(p, preNodes)
 	}
 	return false
 }
 
-func (s *SkipList) deleteNode(p *SkipListNode, preNodes []*SkipListNode) {
+func (sl *SkipList) deleteNode(p *SkipListNode, preNodes []*SkipListNode) {
 	for i, preNode := range preNodes {
 		if preNode.level[i].forward == p {
 			preNode.level[i].span += p.level[i].span - 1
@@ -195,38 +195,38 @@ func (s *SkipList) deleteNode(p *SkipListNode, preNodes []*SkipListNode) {
 	if p.level[0].forward != nil {
 		p.level[0].forward.backward = p.backward
 	} else {
-		s.tail = p.backward
+		sl.tail = p.backward
 	}
 
-	for s.level >= 0 && s.head.level[s.level].forward == nil {
-		s.level--
+	for sl.level >= 0 && sl.head.level[sl.level].forward == nil {
+		sl.level--
 	}
-	s.size--
+	sl.size--
 }
 
-func (s *SkipList) LowerBound(elem SkipListElem) *SkiplistIterator {
-	return s.findWithLessFunc(func(p, forward *SkipListNode, level int, rank uint) bool {
-		return s.cmpElem(forward.elem, elem) < 0
+func (sl *SkipList) LowerBound(elem SkipListElem) *SkiplistIterator {
+	return sl.findWithLessFunc(func(p, forward *SkipListNode, level int, rank uint) bool {
+		return sl.cmpElem(forward.elem, elem) < 0
 	})
 }
 
-func (s *SkipList) UpperBound(elem SkipListElem) *SkiplistIterator {
-	return s.findWithLessFunc(func(p, forward *SkipListNode, level int, rank uint) bool {
-		return s.cmpElem(forward.elem, elem) <= 0
+func (sl *SkipList) UpperBound(elem SkipListElem) *SkiplistIterator {
+	return sl.findWithLessFunc(func(p, forward *SkipListNode, level int, rank uint) bool {
+		return sl.cmpElem(forward.elem, elem) <= 0
 	})
 }
 
-func (s *SkipList) LowerBoundByRank(targetRank uint) *SkiplistIterator {
-	return s.findWithLessFunc(func(p, forward *SkipListNode, level int, rank uint) bool {
+func (sl *SkipList) LowerBoundByRank(targetRank uint) *SkiplistIterator {
+	return sl.findWithLessFunc(func(p, forward *SkipListNode, level int, rank uint) bool {
 		return rank+p.level[level].span < targetRank
 	})
 }
 
 // less 返回当前遍历的节点p是否在forward前，level是当前遍历的层级，rank是当前遍历的节点的排名
-func (s *SkipList) findWithLessFunc(less func(p, forward *SkipListNode, level int, rank uint) bool) *SkiplistIterator {
-	var rank uint    // 当前遍历的节点的排名
-	level := s.level // 当前遍历的层级
-	p := s.head      // 当前遍历的节点
+func (sl *SkipList) findWithLessFunc(less func(p, forward *SkipListNode, level int, rank uint) bool) *SkiplistIterator {
+	var rank uint     // 当前遍历的节点的排名
+	level := sl.level // 当前遍历的层级
+	p := sl.head      // 当前遍历的节点
 	for level >= 0 {
 		forward := p.level[level].forward
 		for forward != nil && less(p, forward, level, rank) {
